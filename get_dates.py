@@ -14,23 +14,27 @@ URL = "https://www.fedsearch.org/fomc-docs/search;jsessionid=F21F049CB8B080588FB
 
 with webdriver.Chrome() as driver:
     dates = []
+    j = 0
     for i in range(0, 200, 10):
         driver.get(URL.format(i))
-        lst = driver.find_elements_by_class_name("greentext")
+        lst = driver.find_elements_by_tag_name("p")
+        
         for tag in lst:
-            text = tag.text
-            print(text)
-            
-            dates.append(dt.strptime(text[26:36], "%m/%d/%Y"))
-            print(dates[-1], end=", ")
-        break
-        print()
+            text = tag.text.lower()
+            if "for release at " in text:
+                ind = text.find("for release at ") + 15
+                print(j, text[ind:ind+10])
+                j = j + 1
+                dates.append(text[ind:ind+10])
+            #dates.append(dt.strptime(text[26:36], "%m/%d/%Y"))
+            #print(dates[-1], end=", ")
+        #print()
     scraped = dates
-
+print(scraped)
 #%%
 dates = pd.Series(scraped)
 dates = dates.drop_duplicates().sort_values(ignore_index=True)
-dates.to_excel("data/dates.xlsx")
+dates.to_excel("data/dates2.xlsx")
 
 print(dates)
 #%%
