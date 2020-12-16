@@ -15,45 +15,33 @@ URL = "https://www.cmegroup.com/CmeWS/mvc/Quotes/Future/305/G?quoteCodes=null&_=
 
 def get_futures(path = ''):
     df = {
-          'Month': [],
+          'ExpirationMonth': [],
           'Last': []
           }
-    
+    now = dt.now()
     quotes = requests.get(URL).json()['quotes']
     for quote in quotes:
         if not quote['last'] == '-':
+            print(quote['expirationDate'])
             stamp = str(quote['expirationDate'])
             stamp = dt.strptime(stamp, '%Y%m%d')
-            df['Month'].append(stamp)
+            df['ExpirationMonth'].append(stamp)
             df['Last'].append(float(quote['last']))
-
+        
     df = pd.DataFrame(df)
     df['Last'] = 1 - df['Last']/100 
-    #df = df.loc[df['Month'] < dt.now() + td(days = 365)]
+    df['Timestamp'] = now
+    df = df.loc[:,['Timestamp', 'ExpirationMonth', 'Last']]
     
     print('CME FFR Futures:')
     print(df)
     
-    update_db(df, path)
+    df.to_csv(path + 'data/cme_ffr.csv', mode='a', header=False, index = False)
     
     return df
 
-def update_db(df, path = ''):
-    db = pd.read_csv(path + 'data/cme_database.csv')
-    
-    row = [dt.now(), df.loc[0, 'Month'].month]
-    row.extend(df['Last'].tolist())
-    
-    if len(row) < len(db.columns):
-        for i in range(len(db.columns) - len(row)):
-            row.append('')
-    elif len(row) > len(db.columns):
-        row = row[:len(db.columns)]
-    
-    with open(path + 'data/cme_database.csv', 'a') as f:
-        row = [str(x) for x in row]
-        f.write(','.join(row) + '\n')
- 
+df = get_futures()
+
 #%%
 
 
