@@ -51,6 +51,12 @@ def get_futures(asset_key, path="" ):
 
     return df
 
+
+df = pd.read_csv('data/cme_ffr.csv')
+groups = df.groupby('Timestamp')
+for key, group in groups:
+    print(key)
+    print(group)
 #%%
 if __name__ == "__main__":
     data_path = __file__[: __file__.find("CME")]
