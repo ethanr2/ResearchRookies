@@ -22,20 +22,25 @@ URL = 'https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY_EXTENDED&
 with open('apiKey.txt') as file:
     KEY = file.read().split(',')[1]
 
-tks = ['VGSH', 'BSV', 'VGIT', 'VGLT']
-#tks =['US10YT']
-sers = {}
-for t in tks:
-    query = pd.read_csv(URL.format(t,KEY))
-    query['time'] = pd.DatetimeIndex(query['time'])
-    query = query.set_index('time')
-    sers[t]= query['close']
-    print(t)
-    print(query['close'])
-data = pd.DataFrame(sers)
+data = pd.read_csv("data/alpha_vantage_frame2.csv", index_col = "time")
 data
 #%%
-data.to_csv('data/alpha_vantage_frame2.csv')
+
+# Only use this for new queries
+def AV_query():
+    tks = ['VGSH', 'BSV', 'VGIT', 'VGLT']
+    #tks =['US10YT']
+    sers = {}
+    for t in tks:
+        query = pd.read_csv(URL.format(t,KEY))
+        query['time'] = pd.DatetimeIndex(query['time'])
+        query = query.set_index('time')
+        sers[t]= query['close']
+        print(t)
+        print(query['close'])
+    data = pd.DataFrame(sers)
+    data
+
 #%%
 mtg_date = dt(year=2019,month=7,day = 31, hour = 14)
 df = data.loc[data.index < mtg_date +td(hours = 1),:]
