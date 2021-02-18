@@ -6,12 +6,11 @@ Created on Thu Nov 19 14:06:47 2020
 """
 
 from datetime import datetime as dt
-from pytz import timezone as tz
 import pandas as pd
 from selenium import webdriver
 
 
-URL = "https://www.fedsearch.org/fomc-docs/search?advanced_search=true&to_month=12&to_year=2020&number={}&fomc_document_type=policystatement&from_year=2002&Search=Search&search_precision=All+Words&start=10&text=&sort=Most+Recent+First&from_month=12"
+URL = "https://www.fedsearch.org/fomc-docs/search?advanced_search=true&to_month=12&to_year=2020&number=10&fomc_document_type=policystatement&from_year=2002&Search=Search&search_precision=All+Words&start={}&text=&sort=Most+Recent+First&from_month=12"
 MAX = 40 # Maximum number of entries to look up in the Fed's search page. 
 
 
@@ -46,15 +45,11 @@ with webdriver.Chrome() as driver:
                 print(j, date)
                 j = j + 1
                 dates.append(date)
-            #dates.append(dt.strptime(text[26:36], "%m/%d/%Y"))
-            #print(dates[-1], end=", ")
-        #print()
-    scraped = dates
 
 #%%
-dates = pd.Series(scraped)
+dates = pd.Series(dates)
 dates = dates.drop_duplicates().sort_values(ignore_index=True)
-dates.to_csv("data/dates.csv")
+dates.to_csv("data/dates.csv", header=  ['timestamp'])
 
 print(dates)
 #%%

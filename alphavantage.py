@@ -18,40 +18,61 @@ from bokeh.models import NumeralTickFormatter, LabelSet,ColumnDataSource
 from bokeh.models.tickers import FixedTicker
 from bokeh.layouts import row, column
 
-URL = 'https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY_EXTENDED&symbol={}&interval=1min&slice=year2month6&apikey={}'
+URL = 'https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY_EXTENDED&symbol={}&interval=1min&slice=year1month{}&apikey={}'
 with open('apiKey.txt') as file:
     KEY = file.read().split(',')[1]
+tks = ['VGSH', 'BSV', 'VGIT', 'VGLT'] # Stock tickers
 
-data = pd.read_csv("data/alpha_vantage_frame2.csv", index_col = "time")
-data
-#%%
+now = dt.now()
+dates = pd.read_csv('data/dates.csv', index_col = 0, parse_dates = [1])[::-1]['timestamp']
+
+
+# Locates the FOMC press release within the month long data
+def find_mtg_window(mtg_date, prices, start = 15, end = 60):
+    prices = prices.set_index('time', drop=False)
+    prices = prices.loc[prices.index < mtg_date + td(minutes = end),:]
+    prices = prices.loc[prices.index > mtg_date -td(minutes = start),:]
+    
+    return prices
 
 # Only use this for new queries
-def AV_query():
-    tks = ['VGSH', 'BSV', 'VGIT', 'VGLT']
-    #tks =['US10YT']
-    sers = {}
+def AV_query(month, t):
+    query = pd.read_csv(URL.format(t,month,KEY))
+    query['time'] = pd.DatetimeIndex(query['time'])
+
+    return query
+
+# Set up dictionary for queries
+df = {
+      'mtg_date': [],
+      'ticker': [],
+      'time' : [],
+      'price': []
+      }
+
+
+for date in dates[:1]:
+    month = int((now - date).days / 30) + 1
     for t in tks:
-        query = pd.read_csv(URL.format(t,KEY))
-        query['time'] = pd.DatetimeIndex(query['time'])
-        query = query.set_index('time')
-        sers[t]= query['close']
-        print(t)
-        print(query['close'])
-    data = pd.DataFrame(sers)
-    data
+        month_data = AV_query(month, t)
+        mtg_data = find_mtg_window(date, month_data)
+        
+        df['price'].extend(list(mtg_data['close']))
+        df['time'].extend(list(mtg_data['time']))
+        n = len(mtg_data['close'])
+        df['mtg_date'].extend([date]*n)
+        df['ticker'].extend([t]*n)
+        
+        print(date, t)
 
-#%%
-mtg_date = dt(year=2019,month=7,day = 31, hour = 14)
-df = data.loc[data.index < mtg_date +td(hours = 1),:]
-df = df.loc[df.index > mtg_date -td(minutes = 15),:]
-
-for t in tks:
-    df[t] = df[t].fillna(method = 'ffill')
-    base = df.loc[mtg_date, t]
-    df[t] = df[t]/base
-
-df
+df = pd.DataFrame(df)
+print(df)
+# TODO: move this to a different function, prolly different script entirely
+# Fill in blanks and index to exact release time
+# for t in tks:
+#     prices[t] = prices[t].fillna(method = 'ffill')
+#     base = prices.loc[mtg_date, t]
+#     prices[t] = prices[t]/base
 #%%
 
 from bokeh.palettes import plasma
@@ -151,4 +172,4 @@ def chart2(df):
     
     return p
 
-show(chart1(df))
+# show(chart1(df))
