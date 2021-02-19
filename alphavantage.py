@@ -19,10 +19,9 @@ from bokeh.models import NumeralTickFormatter, LabelSet, ColumnDataSource
 from bokeh.models.tickers import FixedTicker
 from bokeh.layouts import row, column
 
-URL = "https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY_EXTENDED&symbol={}&interval=1min&slice=year{}month{}&apikey={}"
+URL = "https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY_EXTENDED&symbol={}&interval={}min&slice=year{}month{}&apikey={}"
 with open("apiKey.txt") as file:
     KEY = file.read().split(",")[1]
-tks = ["VGSH", "BSV", "VGIT", "VGLT"]  # Stock tickers
 
 now = dt.now()
 dates = pd.read_csv("data/dates.csv", index_col=0, parse_dates=[1])[::-1]["timestamp"]
@@ -34,7 +33,7 @@ def find_mtg_window(mtg_date, prices, start=15, end=60):
     prices = prices.loc[prices.index < mtg_date + td(minutes=end), :]
     prices = prices.loc[prices.index > mtg_date - td(minutes=start), :]
 
-    return prices
+    return prices.reset_index(drop = True)
 
 
 def pretty_pause():
@@ -45,47 +44,71 @@ def pretty_pause():
     print()
 
 
-# Only use this for new queries
-def AV_query(month, year, t):
-    query = pd.read_csv(URL.format(t, year, month, KEY))
+def AV_query(month, year, t, interval = 1):
+    query = pd.read_csv(URL.format(t,interval, year, month, KEY))
     if "time" in query:
         query["time"] = pd.DatetimeIndex(query["time"])
     else:
         # The API Rate limits to 5 calls per minute.
         # Pauses the script for a moment then recursively calls the API again.
+        print(query)
         pretty_pause()
         return AV_query(month, year, t)
     return query
 
+# Do not use this unless there are new calls we need to make. 
+def get_raw_data(tks = ["VGSH", "BSV", "VGIT", "VGLT"]):
+    API_calls = []
+    for year in range(2):
+        for month in range(12):
+            API_calls.append((year + 1, month + 1))
+    
+    for year, month in API_calls:
+        # Set up dictionary for queries
+        df = {"ticker": [], "time": [], "price": []}
+        
+        for t in tks:
+            month_data = AV_query(month, year, t)
+            
+            df["price"].extend(list(month_data["close"]))
+            df["time"].extend(list(month_data["time"]))
+            n = len(month_data["close"])
+            df["ticker"].extend([t] * n)
+    
+            print("year{}month{}".format(year, month), t)
+    
+        df = pd.DataFrame(df)
+        print(df)
+        df.to_csv("data/alphavantage_database.csv", mode = 'a', header = False)
+    
+    df = pd.read_csv("data/alphavantage_database.csv")
+    print(df)
 
-# Set up dictionary for queries
-df = {"mtg_date": [], "ticker": [], "time": [], "price": []}
 
-
-for date in dates[:5]:
-    month = now.month - date.month + 1
-    year = now.year - date.year + 1
-    for t in tks:
-        month_data = AV_query(month, year, t)
-        mtg_data = find_mtg_window(date, month_data)
-
-        df["price"].extend(list(mtg_data["close"]))
-        df["time"].extend(list(mtg_data["time"]))
-        n = len(mtg_data["close"])
-        df["mtg_date"].extend([date] * n)
-        df["ticker"].extend([t] * n)
-
-        print(date, t)
-
-df = pd.DataFrame(df)
-print(df)
-df.to_csv("data/alphavantage_database.csv")
 # TODO: move this to a different function, prolly different script entirely
 # Fill in blanks and index to exact release time
 # for t in tks:
 #     prices[t] = prices[t].fillna(method = 'ffill')
 #     base = prices.loc[mtg_date, t]
 #     prices[t] = prices[t]/base
+
+
+data = pd.read_csv("data/alphavantage_database.csv", 
+                 usecols = [1,2,3], 
+                 parse_dates = ['time'])
+for d in dates:
+    df = find_mtg_window(d, data)
+    df['mtg_date'] = d
+    df.to_csv('intermediate_files/filtered_alphavantage_database.csv',
+              mode = 'a',
+              header = False,
+              index = False)
+    print(d)
+
+df = pd.read_csv('intermediate_files/filtered_alphavantage_database.csv')
+df
+#%%
+
 #%%
 
 from bokeh.palettes import plasma
